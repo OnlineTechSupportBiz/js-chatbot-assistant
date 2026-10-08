@@ -1,0 +1,75 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chatbot_assistant
+      POSTGRES_USER: postgres
+      # No defaults: `${VAR:?message}` aborts `docker compose up` when a value is
+      # missing, so the stack cannot start on guessable credentials. Generate them
+      # (e.g. `openssl rand -hex 24`) and put them in .env.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?set MIGRATOR_DB_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chatbot_assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment: &app-env
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: chatbot_assistant
+      DB_SCHEMA: chatbot_schema
+      DB_USER: chatbot_user
+      DB_PASS: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
+      DB_MIGRATOR_USER: migrator
+      DB_MIGRATOR_PASS: ${MIGRATOR_DB_PASSWORD:?set MIGRATOR_DB_PASSWORD in .env}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_ENCRYPTION: ${SMTP_ENCRYPTION:-starttls}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Chatbot Assistant}
+      STORAGE_DIR: ${STORAGE_DIR:-/data/uploads}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment: *app-env
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  migrate:
+    build: .
+    restart: "no"
+    command: ["npm", "run", "migrate"]
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

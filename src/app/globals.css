@@ -1,0 +1,1378 @@
+/* Design system — Chatbot Assistant admin console.
+   Rules: native font stack (no Inter), restrained navy/teal palette, light mode,
+   no gradients, no em/en-dashes, 8px rhythm, single radius. */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --text: #0f172a;
+  --text-muted: #64748b;
+
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-soft: #ccfbf1;
+
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+
+  --radius: 8px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+
+  --sidebar: #0f172a;
+  --sidebar-text: #cbd5e1;
+  --sidebar-muted: #64748b;
+  --sidebar-active: #0f766e;
+
+  /* Conversation transcript roles. Values ported verbatim from the PHP
+     theme.css `:root` block so a transcript reads identically in either
+     backend (WCAG AA against --surface). */
+  --role-user: #2563eb;
+  --role-assistant: #059669;
+  --role-system: #d97706;
+  --avatar-user: #dc2626;
+  --avatar-assistant: #2563eb;
+
+  --font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui,
+    sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.2;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+/* ── Layout shell ──
+   Mobile-first: the base rules describe the SMALL viewport (drawer nav, single
+   column, stacked form rows), and the `min-width` queries at the bottom of this
+   section opt INTO the desktop layout. Nothing is styled for desktop by
+   default, so no rule can be missed at a narrow width. */
+
+.admin-shell {
+  display: grid;
+  grid-template-areas:
+    "topbar"
+    "main";
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+}
+
+/* The topbar exists only in the mobile layout; the desktop rule drops it from
+   the grid entirely once the sidebar becomes a static column. */
+.admin-topbar {
+  grid-area: topbar;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 56px;
+  padding: 0 0.75rem;
+  background: var(--sidebar);
+  color: #ffffff;
+}
+
+.admin-topbar-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-toggle:focus-visible,
+.sidebar-close:focus-visible,
+.sidebar-signout:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
+.nav-toggle-bars {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 20px;
+  height: 14px;
+}
+
+.nav-toggle-bars > span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 2px;
+}
+
+/* Scrim behind the open drawer. A real <button> so it is reachable by keyboard
+   and screen readers (aria-label above), not just a click target. */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  border: none;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.admin-main {
+  grid-area: main;
+  padding: 1.25rem 1rem 3rem;
+  /* `1fr` is required: without it the grid track sizes to max-content and wide
+     tables push the whole page sideways. */
+  min-width: 0;
+}
+
+.page-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.page-head h1 {
+  margin-bottom: 0.25rem;
+}
+
+.page-head .subtitle {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Sidebar (off-canvas below `lg`) ──
+   Two layers on purpose:
+   `.sidebar` owns the PAINTED FULL-HEIGHT BACKGROUND, `.sidebar-inner` owns the
+   SCROLLING COLUMN. At `lg` the outer box is a normal stretched grid item (so
+   its navy background covers the entire page, no white gap under it) and only
+   the inner column is `position: sticky` at one viewport tall. Below `lg` the
+   outer box is the fixed drawer and the inner column does the scrolling, which
+   keeps the scrollbar off the navy background itself. */
+.sidebar {
+  grid-area: nav;
+  background: var(--sidebar);
+  color: var(--sidebar-text);
+  /* Hidden state: off-screen to the left, and out of the tab order. `visibility`
+     (not just `opacity`/off-screen position) is what actually removes it from
+     the accessibility tree and from sequential focus. */
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 50;
+  width: 250px;
+  max-width: 84vw;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform 0.2s ease,
+    visibility 0.2s ease;
+}
+
+.sidebar.is-open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+/* The scrolling column inside the painted box. */
+.sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.25rem 0.75rem;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 0.25rem 0.75rem 1rem;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sidebar-close {
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+  cursor: pointer;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav a {
+  display: block;
+  color: var(--sidebar-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.sidebar-nav a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+  color: #ffffff;
+}
+
+.sidebar-nav a.active {
+  background: var(--sidebar-active);
+  color: #ffffff;
+}
+
+.sidebar-section {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sidebar-muted);
+  padding: 1rem 0.75rem 0.25rem;
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+}
+
+.sidebar-signout {
+  background: transparent;
+  border: none;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.sidebar-signout:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* `lg`: the drawer becomes a permanent column, the topbar and scrim go away, and
+   the page goes to two columns. Desktop-only rules, deliberately. */
+@media (min-width: 1024px) {
+  .admin-shell {
+    grid-template-areas: "nav main";
+    grid-template-columns: 232px 1fr;
+  }
+
+  .admin-topbar {
+    display: none;
+  }
+
+  /* Fills the whole column beside the sidebar: `1fr` on the grid track plus no
+     max-width cap here. A cap left the content column narrower than the space
+     available at wide viewports, with dead space to its right. Line length is
+     handled by the cards' own width instead. */
+  .admin-main {
+    padding: 2rem 2.5rem;
+  }
+
+  /* Full length of the left side: a plain stretched grid item, so the navy
+     background paints the whole column down to the bottom of the page. It must
+     NOT be sticky/fixed here — that is what left a white gap underneath it. */
+  .sidebar {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+    max-width: none;
+    transform: none;
+    visibility: visible;
+    transition: none;
+  }
+
+  /* Only the inner column sticks, pinned to the top of the viewport and capped
+     at one viewport tall, so brand + nav stay visible while a long page (a
+     chatbot's Settings tab, for instance) scrolls past. */
+  .sidebar-inner {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-close {
+    display: none;
+  }
+
+  .page-head {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.btn:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* Selected toggle in a button group (dashboard chart range). PHP's dashboard
+   uses the same class for its 7d/30d/90d links. */
+.btn-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-danger {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.btn-sm {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+}
+
+/* A card whose only child is a table. It scrolls horizontally on narrow
+   viewports instead of letting the table widen the page. */
+.card-flush {
+  padding: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Same containment for ANY card that directly holds a table, so a table can
+   never widen the page just because a call site forgot `.card-flush`. `.table`
+   has a `min-width`, so without a scroll container the overflow would reach
+   `documentElement` and turn the whole page horizontally scrollable. */
+.card:has(> .table) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card + .card {
+  margin-top: 1rem;
+}
+
+/* Header strip of a `.card-flush`: padded like a normal card, wraps on narrow
+   viewports so the title and the action buttons never collide. */
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 1.25rem 1.25rem 0.5rem;
+}
+
+.card-head h2 {
+  margin: 0;
+}
+
+/* Body text of a `.card-flush` that is not a table. */
+.card-note {
+  margin: 0;
+  padding: 0 1.25rem 1.25rem;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 650;
+}
+
+/* ── Tables ── */
+.table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+/* ── Forms ── */
+.field {
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: block;
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  font-family: var(--font);
+  /* 16px floor on phones: iOS Safari zooms the viewport on focus for anything
+     smaller, which leaves the page scrolled sideways after typing in a field. */
+  font-size: 1rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+@media (min-width: 640px) {
+  .input,
+  .select,
+  .textarea {
+    font-size: 0.9rem;
+  }
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
+}
+
+.textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.code-block {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* One LLM model in the settings list. Its four fields wrap through `.form-row`
+   and the reorder buttons drop to their own full-width row on a phone. */
+.model-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  align-items: flex-end;
+}
+
+.model-actions {
+  gap: 0.3rem;
+}
+
+@media (min-width: 480px) {
+  .model-actions {
+    flex: 0 0 auto;
+    padding-bottom: 0.15rem;
+  }
+}
+
+/* Fields sit in a column by default and become a row only once there is room.
+   `minmax(0, 1fr)` (not `1fr`) lets the track shrink below its content, which is
+   what stops a long value from widening the grid. */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 1rem;
+}
+
+.form-row > .field {
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .form-row {
+    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  }
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.badge-success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: transparent;
+}
+
+.badge-warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: transparent;
+}
+
+.badge-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: transparent;
+}
+
+/* ── Alerts ── */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert-error {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.alert-success {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.alert-info {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Reindex progress ── */
+.progress {
+  height: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.reindex-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.reindex-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.reindex-list li:last-child {
+  border-bottom: none;
+}
+
+.reindex-list .reindex-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+  /* Below `sm` the error gets its own full-width line instead of being squeezed
+     into whatever space the label leaves. */
+  flex-basis: 100%;
+  max-width: 100%;
+  text-align: left;
+}
+
+@media (min-width: 480px) {
+  .reindex-list .reindex-error {
+    flex-basis: auto;
+    margin-left: auto;
+    max-width: 40%;
+    text-align: right;
+  }
+}
+
+.alert-warning {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+/* ── Misc ── */
+.muted {
+  color: var(--text-muted);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.empty {
+  color: var(--text-muted);
+  padding: 2rem;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spread {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+/* ── Dashboard bar chart ── */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  height: 160px;
+  overflow-x: auto;
+}
+
+.bar-col {
+  flex: 1 0 2.25rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bar {
+  width: 100%;
+  max-width: 40px;
+  background: var(--accent);
+  border-radius: 4px 4px 0 0;
+}
+
+.bar-count {
+  font-size: 0.75rem;
+}
+
+.bar-label {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+/* ── Tabs ── */
+.tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab-active {
+  color: var(--text);
+  font-weight: 500;
+  border-bottom-color: var(--accent);
+}
+
+/* ── Conversation transcript ──
+   Ported from the PHP `conversation_detail.php` / `show.php` `.conv-*` blocks so a
+   transcript looks the same in either backend: avatar disc, role label, markdown
+   body, and a meta line (time / tokens / response time).
+
+   PHP gives BOTH roles the same `var(--surface)` background and a 1px border —
+   the roles are distinguished by the avatar colour and the role label, not by a
+   tinted bubble. The old `--surface-2` / `--accent-soft` fills are gone. */
+
+.msg {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.msg-user,
+.msg-assistant,
+.msg-system {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.msg-avatar-user {
+  background: var(--avatar-user);
+}
+
+.msg-avatar-assistant {
+  background: var(--avatar-assistant);
+}
+
+.msg-avatar-system {
+  background: var(--role-system);
+}
+
+.msg-bubble {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-meta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.msg-meta-user {
+  color: var(--role-user);
+}
+
+.msg-meta-assistant {
+  color: var(--role-assistant);
+}
+
+.msg-meta-system {
+  color: var(--role-system);
+}
+
+/* Markdown body (PHP `.conv-text`) — rules mirror `show.php`, with the PHP theme
+   variable names mapped onto this design system. */
+.msg-text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.msg-text p {
+  margin-bottom: 6px;
+}
+
+.msg-text p:last-child {
+  margin-bottom: 0;
+}
+
+.msg-text ul,
+.msg-text ol {
+  padding-left: 1.25rem;
+  margin-bottom: 6px;
+}
+
+.msg-text li {
+  margin-bottom: 2px;
+}
+
+.msg-text pre {
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+
+.msg-text code {
+  font-size: 0.8rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.msg-text pre code {
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+
+.msg-text blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+
+.msg-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+
+.msg-text table th,
+.msg-text table td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.msg-text table th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.msg-text img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.msg-text a {
+  color: var(--accent);
+}
+
+.msg-detail {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.msg-detail span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.msg-separator {
+  text-align: center;
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+/* Retrieval-source badge next to the role label (PHP `.source-badge`). */
+.msg-source {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+/* Lead summary strip above the transcript (PHP `.lead-info-card`).
+   PHP lays this out as a Bootstrap row (3/3/2/4 of 12 columns). This design
+   system is mobile-first: one column by default, a `minmax` row once there is
+   room. `Summary` gets the widest track because it holds a sentence, not a
+   token. */
+.lead-card {
+  background: rgba(15, 118, 110, 0.08);
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.lead-card > .form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem 1rem;
+}
+
+.lead-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.lead-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+@media (min-width: 640px) {
+  .lead-card > .form-row {
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  }
+}
+
+/* auth pages (centered, outside the admin shell) */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+}
+
+/* ── Auth pages (login / register) — matches the PHP deep-navy theme ── */
+.auth-card {
+  --auth-accent: #1e3a5f;
+  --auth-accent-hover: #162d4b;
+}
+
+.auth-logo {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.auth-logo .logo-text {
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--auth-accent);
+  letter-spacing: -0.02em;
+}
+
+.auth-card h1 {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.25rem;
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+}
+
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 0.6rem 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  white-space: nowrap;
+}
+
+.auth-tab:hover {
+  color: var(--text);
+}
+
+.auth-tab.active {
+  color: var(--auth-accent);
+  border-bottom-color: var(--auth-accent);
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 0.625rem;
+  justify-content: center;
+  background: var(--auth-accent);
+  border-color: var(--auth-accent);
+}
+
+.auth-submit:hover {
+  background: var(--auth-accent-hover);
+  border-color: var(--auth-accent-hover);
+}
+
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.auth-center {
+  text-align: center;
+  font-size: 0.9rem;
+  margin-top: 1.25rem;
+}
+
+.auth-center a {
+  color: var(--auth-accent);
+}
+
+.auth-center a:hover {
+  color: var(--auth-accent-hover);
+}
+
+.auth-note {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+}
+
+.auth-req {
+  color: var(--danger);
+}
+
+/* ── Dropzone + upload progress ── */
+
+.dropzone {
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surface-2);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .dropzone {
+    padding: 2.25rem 1.5rem;
+  }
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+}
+
+.dropzone-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dropzone-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dropzone-hint {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.upload-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.upload-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+
+.upload-name {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-progress {
+  flex: 1 1 8rem;
+  height: 0.65rem;
+  accent-color: var(--accent);
+}
+
+.upload-pct {
+  flex: 0 0 auto;
+  width: 3.25rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ── Outage screen (database unreachable / unhandled server error) ── */
+
+.outage-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.outage-card {
+  width: 100%;
+  max-width: 34rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+}
+
+.outage-card h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.outage-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.outage-badge-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.outage-lead {
+  margin: 0 0 0.75rem;
+  color: var(--text);
+}
+
+.outage-card p {
+  font-size: 0.9rem;
+}
+
+.outage-retry {
+  margin-top: 1.5rem;
+}

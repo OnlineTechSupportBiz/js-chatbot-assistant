@@ -1,0 +1,49 @@
+{
+  "name": "js-chatbot-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Next.js/Node port of php-chatbot-assistant: multi-tenant chatbot SaaS (RAG + PageIndex retrieval, embeddable widget, AI lead capture).",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "migrate": "tsx src/db/migrate.ts",
+    "worker": "tsx src/worker.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "bcryptjs": "^2.4.3",
+    "chart.js": "^4.5.1",
+    "dompurify": "^3.4.16",
+    "marked": "^18.0.14",
+    "next": "^15.3.4",
+    "nodemailer": "^10.0.13",
+    "otplib": "^13.0.0",
+    "pg": "^8.15.6",
+    "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.1.0",
+    "zod": "^3.24.4"
+  },
+  "overrides": {
+    "postcss": "^8.5.28"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.15.30",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.11.14",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^9.29.0",
+    "eslint-config-next": "^15.3.4",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

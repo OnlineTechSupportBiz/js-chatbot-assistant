@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# Testing
+coverage/
+
+# Misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+zap.yaml
+graphify-out/
+docs/
+semgrep.sarif
+AGENTS.md
+src/db/migrations.zip
+
+# Env & secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Uploaded documents / local storage — never commit user data
+storage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# One-off live-test/debug scripts (kept out of the repo)
+src/debug-*.ts
+
+
